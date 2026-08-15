@@ -39,5 +39,11 @@ TERRAIN_DATA = {
         speed=0.5,
         color=(140, 90, 60),
     ),
-
 }
+
+def get_cost(terrain: Terrain) -> float:
+    return TERRAIN_DATA[terrain].cost
+def get_speed(terrain: Terrain) -> float:
+    return TERRAIN_DATA[terrain].speed
+def get_color(terrain: Terrain) -> tuple[int, int, int]:
+    return TERRAIN_DATA[terrain].color
