@@ -16,7 +16,7 @@ class Maze:
         self.width = width
         self.height = height
 
-        self.grid = [Cell(x,y,walkable = False) for x in range(width)
+        self.grid = [[Cell(x,y,walkable = False) for x in range(width)]
                      for y in range(height)]
         self.start = (1,1)
         self.goal = (width -2, height -2)
@@ -29,8 +29,8 @@ class Maze:
     def in_bounds(self, x: int, y: int) -> bool:
         return 0 <= x < self.width and 0 <= y < self.height
     def is_walkable(self, x: int, y: int) -> bool:
-        return self.inbounds(x,y) and self.grid[y][x].walkable
-    def get_cells(self, x: int, y: int) -> Cell:
+        return self.in_bounds(x,y) and self.grid[y][x].walkable
+    def get_cell(self, x: int, y: int) -> Cell:
         return self.grid[y][x]
     def set_walkable(self, x: int, y: int, walkable: bool = True):
         if self.in_bounds(x, y):
