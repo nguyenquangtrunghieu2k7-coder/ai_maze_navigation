@@ -22,8 +22,8 @@ def slope_angle(x: int,y: int,nx: int,ny: int,z: int,nz: int):
     return math.atan2(dz, horizontal_distance)
 
 def distance_cost(maze: Maze, x: int, y: int, nx: int, ny: int) -> float:
-    z = maze.grid[y][x].get_elevation(x,y)
-    nz = maze.grid[ny][nx].get_elevation(nx,ny)
+    z = maze.get_elevation(x, y)
+    nz = maze.get_elevation(nx, ny) 
     return edge_distance(x,y,nx,ny,z,nz)
 def time_cost(maze: Maze, x: int, y: int, nx: int, ny: int) -> float:
     z = maze.get_elevation(x, y)
