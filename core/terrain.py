@@ -22,26 +22,26 @@ class TerrainInfo:
 TERRAIN_DATA = {
     Terrain.ROAD: TerrainInfo(
         cost=1.0,
-        speed=2.0,
-        friction = 1.0,
+        speed=1.0,
+        friction = 0.02,
         color=(240, 240, 240),
     ),
     Terrain.GRASS: TerrainInfo(
         cost=2.0,
-        speed=1.5,
-        friction = 0.40,
+        speed=0.75,
+        friction = 0.08,
         color=(120, 200, 120),
     ),
     Terrain.SAND: TerrainInfo(
         cost=4.0,
-        speed=1.0,
-        friction = 0.30,
+        speed=0.5,
+        friction = 0.25,
         color=(230, 210, 120),
     ),
     Terrain.MUD: TerrainInfo(
         cost=7.0,
-        speed=0.5,
-        friction = 0.2,
+        speed=0.25,
+        friction = 0.45,
         color=(140, 90, 60),
     ),
 }
@@ -50,5 +50,7 @@ def get_cost(terrain: Terrain) -> float:
     return TERRAIN_DATA[terrain].cost
 def get_speed(terrain: Terrain) -> float:
     return TERRAIN_DATA[terrain].speed
+def get_friction(terrain: Terrain) -> float:
+    return TERRAIN_DATA[terrain].friction
 def get_color(terrain: Terrain) -> tuple[int, int, int]:
     return TERRAIN_DATA[terrain].color

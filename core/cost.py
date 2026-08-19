@@ -30,7 +30,7 @@ def time_cost(maze: Maze, x: int, y: int, nx: int, ny: int) -> float:
     nz = maze.get_elevation(nx, ny)   
 
     distance = edge_distance(x,y,nx,ny,z,nz)
-    speed = maze.get_speed(nx,ny)
+    speed = BASE_SPEED*maze.get_speed(nx,ny)
 
     return distance/speed
 def energy_cost(maze: Maze, x: int, y: int, nx: int, ny: int) -> float:
@@ -42,7 +42,7 @@ def energy_cost(maze: Maze, x: int, y: int, nx: int, ny: int) -> float:
 
     distance = edge_distance(x,y,nx,ny,z,nz)
     phi = slope_angle(x,y,nx,ny,z,nz)
-    mu = get_friction(next_cell) 
+    mu = get_friction(next_cell.terrain) 
 
     breaking_angle = -math.atan(mu)
 
@@ -51,7 +51,7 @@ def energy_cost(maze: Maze, x: int, y: int, nx: int, ny: int) -> float:
     else:
         motion_energy = ROBOT_MASS*GRAVITY*distance*(math.sin(phi) + mu*math.cos(phi))
     
-    speed = maze.get_speed(nx,ny)
+    speed = BASE_SPEED*maze.get_speed(nx,ny)
     time = distance/speed
     static_energy = STATIC_POWER*time
 
