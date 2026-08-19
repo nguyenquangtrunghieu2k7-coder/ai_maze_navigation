@@ -26,10 +26,10 @@ def distance_cost(maze: Maze, x: int, y: int, nx: int, ny: int) -> float:
     nz = maze.grid[ny][nx].get_elevation(nx,ny)
     return edge_distance(x,y,nx,ny,z,nz)
 def time_cost(maze: Maze, x: int, y: int, nx: int, ny: int) -> float:
-    z = maze.grid[y][x].get_elevation(x,y)
-    nz = maze.grid[ny][nx].get_elevation(nx,ny)
-    distance = edge_distance(x,y,nx,ny,z,nz)
+    z = maze.get_elevation(x, y)
+    nz = maze.get_elevation(nx, ny)   
 
+    distance = edge_distance(x,y,nx,ny,z,nz)
     speed = maze.get_speed(nx,ny)
 
     return distance/speed

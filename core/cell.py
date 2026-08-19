@@ -13,6 +13,7 @@ class Cell:
     y: int
     walkable: bool = True
     terrain: Terrain = Terrain.ROAD
+    elevation: float = 0.0
     @property
     def pos(self) -> tuple[int,int]:
         return (self.x, self.y)
