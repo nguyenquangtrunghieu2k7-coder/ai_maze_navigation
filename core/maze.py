@@ -9,7 +9,7 @@ Maze có các trách nhiệm sau:
 '''
 
 from core.cell import Cell
-from core.terrain import Terrain, get_cost
+from core.terrain import Terrain, get_cost, get_speed
 
 class Maze:
     def __init__(self, width: int, height: int):
@@ -74,5 +74,7 @@ class Maze:
         elevation_2 = self.get_elevation(x2, y2)
 
         return elevation_2 - elevation_1
+    def get_speed(self, x: int, y: int) -> float:
+        return get_speed(self.grid[y][x].terrain)
     def __repr__(self):
         return f"Maze({self.width}x{self.height})"
