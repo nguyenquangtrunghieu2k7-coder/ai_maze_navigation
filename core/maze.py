@@ -54,12 +54,25 @@ class Maze:
             for cell in row:
                 cell.walkable = False
                 cell.terrain = Terrain.ROAD
-    def set_start(self, x, y):
+    def set_start(self, x: int, y: int):
         if self.is_walkable(x, y):
             self.start = (x, y)
 
-    def set_goal(self, x, y):
+    def set_goal(self, x: int, y: int):
         if self.is_walkable(x, y):
             self.goal = (x, y)
+    def get_elevation(self, x: int, y: int) -> float:
+        return self.grid[y][x].elevation
+    def get_slope(
+        self,
+        x1: int,
+        y1: int,
+        x2: int,
+        y2: int
+    ) -> float:
+        elevation_1 = self.get_elevation(x1, y1)
+        elevation_2 = self.get_elevation(x2, y2)
+
+        return elevation_2 - elevation_1
     def __repr__(self):
         return f"Maze({self.width}x{self.height})"
