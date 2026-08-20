@@ -2,10 +2,8 @@ import math
 from core.maze import Maze
 from core.terrain import Terrain, get_friction
 
-ROBOT_MASS = 10.0
-GRAVITY = 9.81
-STATIC_POWER = 50
-BASE_SPEED = 1.0
+from core.config import *
+
 
 def edge_distance(x: int,y: int,nx: int,ny: int,z: int,nz: int):
     dx = nx - x

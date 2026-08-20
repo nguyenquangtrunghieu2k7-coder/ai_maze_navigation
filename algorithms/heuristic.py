@@ -1,6 +1,7 @@
 from core.maze import Maze
 import math
-from core.cost import BASE_SPEED, ROBOT_MASS, GRAVITY, STATIC_POWER, edge_distance, slope_angle
+from core.config import *
+from core.cost import edge_distance, slope_angle
 from core.terrain import get_friction
 
 
@@ -23,14 +24,10 @@ def euclidean_3d(
     return math.sqrt(dx * dx + dy * dy + dz * dz)
 
 def time_heuristic(maze: Maze, current: tuple[int,int], goal: tuple[int,int]) -> float:
-    x,y = current
-    nx,ny = goal
+    distance = euclidean_3d(maze, current, goal)
+    max_speed = BASE_SPEED*1.0
 
-    z = maze.get_elevation(x, y)
-    nz = maze.get_elevation(nx, ny)   
-
-    distance = edge_distance(x,y,nx,ny,z,nz)
-    speed = BASE_SPEED*maze.get_speed(nx,ny)
+    return distance/max_speed
 
     return distance/speed
 def energy_heuristic(maze: Maze, current: tuple[int,int], goal: tuple[int,int]) -> float:
