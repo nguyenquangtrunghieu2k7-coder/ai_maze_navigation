@@ -4,10 +4,9 @@ from time import perf_counter
 from core.path import PathResult
 from core.maze import Maze
 from .base import SearchAlgorithms
-from .heuristic import manhattan
 
 class Astar(SearchAlgorithms):
-    def search(self, maze: Maze, start: tuple[int,int], goal: tuple[int,int], cost_fn) -> PathResult:
+    def search(self, maze: Maze, start: tuple[int,int], goal: tuple[int,int], cost_fn, heuristic_fn) -> PathResult:
         
         start_time = perf_counter()
 
@@ -22,7 +21,7 @@ class Astar(SearchAlgorithms):
 
             g_score = distance[current]
 
-            if f_score > g_score + manhattan(current, goal):
+            if f_score > g_score + heuristic_fn(current, goal):
                 continue
             
             x,y = current
@@ -35,7 +34,7 @@ class Astar(SearchAlgorithms):
                     distance[neighbor] = new_cost
                     parent[neighbor] = current
 
-                    h = manhattan(neighbor, goal)
+                    h = heuristic_fn(neighbor, goal)
                     f = new_cost + h
 
                     heapq.heappush(queue, (f, neighbor))
