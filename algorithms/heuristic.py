@@ -1,9 +1,14 @@
 from core.maze import Maze
 import math
 from core.config import *
-from core.cost import edge_distance, slope_angle
-from core.terrain import get_friction
+from core.terrain import TERRAIN_DATA
 
+def zero_heuristic(
+    maze: Maze,
+    current: tuple[int, int],
+    goal: tuple[int, int],
+) -> float:
+    return 0.0
 
 def euclidean_3d(
     maze: Maze,
@@ -29,30 +34,32 @@ def time_heuristic(maze: Maze, current: tuple[int,int], goal: tuple[int,int]) ->
 
     return distance/max_speed
 
-    return distance/speed
 def energy_heuristic(maze: Maze, current: tuple[int,int], goal: tuple[int,int]) -> float:
     x,y = current
-    nx, ny = goal
+    gx, gy = goal
 
     cell = maze.get_cell(x,y)
-    next_cell = maze.get_cell(nx,ny)
+    next_cell = maze.get_cell(gx,gy)
 
     z = cell.elevation
-    nz = next_cell.elevation
+    gz = next_cell.elevation
+    dz = gz - z
 
-    distance = edge_distance(x,y,nx,ny,z,nz)
-    phi = slope_angle(x,y,nx,ny,z,nz)
-    mu = get_friction(next_cell.terrain) 
+    distance = euclidean_3d(maze, current, goal)
 
-    breaking_angle = -math.atan(mu)
+    #Lower bound của năng lượng chống lại trọng lực
+    gravity_energy = max(0.0, ROBOT_MASS*GRAVITY*dz)
+    # Lower bound của friction
+    min_friction = min(
+                        info.friction
+                        for info in TERRAIN_DATA.values()
+                    )
+    friction_energy = (ROBOT_MASS*GRAVITY*distance*min_friction)
+    # Lower bound của static energy
+    max_speed = BASE_SPEED * 1.0
+    min_time = distance / max_speed
 
-    if phi <= breaking_angle:
-        motion_energy = 0.0
-    else:
-        motion_energy = ROBOT_MASS*GRAVITY*distance*(math.sin(phi) + mu*math.cos(phi))
-    
-    speed = BASE_SPEED*maze.get_speed(nx,ny)
-    time = distance/speed
-    static_energy = STATIC_POWER*time
+    static_energy = STATIC_POWER * min_time
 
-    return static_energy + motion_energy    
+    return static_energy
+       
