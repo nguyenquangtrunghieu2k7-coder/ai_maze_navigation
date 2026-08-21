@@ -1,0 +1,12 @@
+metric,value
+total_cases,279
+astar_faster_cases,188
+astar_same_cases,0
+astar_slower_cases,91
+astar_faster_pct,67.3835
+astar_slower_pct,32.6165
+avg_expansion_reduction_pct,35.519445
+avg_runtime_speedup,1.139064
+best_speedup,3.445693
+median_speedup,1.334217
+worst_speedup,0.668451

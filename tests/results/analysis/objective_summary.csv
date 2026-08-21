@@ -1,0 +1,4 @@
+objective,cases,avg_dijkstra_expanded,avg_astar_expanded,avg_expansion_reduction_pct,avg_dijkstra_ms,avg_astar_ms,avg_speedup,astar_faster_cases,astar_same_cases,astar_slower_cases,best_speedup,median_speedup,worst_speedup
+DISTANCE,93,36083.666667,22947.451613,38.449401,59.78369,45.829571,1.304478,74,0,19,3.445693,1.510376,0.786071
+TIME,93,36102.892473,23903.602151,35.618974,71.326544,57.487464,1.240732,60,0,33,3.344266,1.572638,0.807539
+ENERGY,93,36089.473118,24952.44086,32.489959,100.854201,100.327732,1.005247,54,0,39,2.594508,1.239084,0.668451
