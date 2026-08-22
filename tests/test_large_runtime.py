@@ -1,9 +1,11 @@
-import csv
-import math
 import random
-import statistics
 import time
+import statistics
+import math
+import csv
+import sys
 from pathlib import Path
+from datetime import datetime
 
 from core.maze import Maze
 from core.terrain import Terrain
@@ -37,25 +39,74 @@ SIZES = [
 ]
 
 CASES_PER_SIZE = 10
-
-# Number of benchmark runs per algorithm / case
 BENCH_RUNS = 5
 
 WALL_PROBABILITY = 0.20
-
-# Start / goal must be sufficiently far apart
 MIN_MANHATTAN_RATIO = 0.50
 
+# ============================================================
+# RESULT DIRECTORY
+# ============================================================
+
+RESULT_ROOT = (
+    Path(__file__).parent
+    / "results"
+    / "large_runtime"
+)
+
+RUN_ID = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+RESULT_DIR = RESULT_ROOT / RUN_ID
+
+RESULT_DIR.mkdir(
+    parents=True,
+    exist_ok=True,
+)
+
+
+RAW_CSV = RESULT_DIR / "raw_results.csv"
+SUMMARY_CSV = RESULT_DIR / "summary.csv"
+CASE_SUMMARY_CSV = RESULT_DIR / "case_summary.csv"
+BEST_CSV = RESULT_DIR / "best_cases.csv"
+WORST_CSV = RESULT_DIR / "worst_cases.csv"
+CONFIG_FILE = RESULT_DIR / "config.txt"
+TERMINAL_FILE = RESULT_DIR / "terminal_output.txt"
+
 
 # ============================================================
-# OUTPUT
+# TERMINAL LOGGER
 # ============================================================
 
-RESULT_DIR = Path(__file__).parent / "results"
-RESULT_DIR.mkdir(exist_ok=True)
+class Tee:
+    """
+    In ra terminal đồng thời ghi vào file.
+    """
 
-CASE_CSV = RESULT_DIR / "large_runtime_results.csv"
-SUMMARY_CSV = RESULT_DIR / "large_runtime_summary.csv"
+    def __init__(self, *streams):
+        self.streams = streams
+
+    def write(self, data):
+        for stream in self.streams:
+            stream.write(data)
+            stream.flush()
+
+    def flush(self):
+        for stream in self.streams:
+            stream.flush()
+
+
+terminal_file = open(
+    TERMINAL_FILE,
+    "w",
+    encoding="utf-8",
+)
+
+original_stdout = sys.stdout
+
+sys.stdout = Tee(
+    original_stdout,
+    terminal_file,
+)
 
 
 # ============================================================
@@ -85,96 +136,134 @@ OBJECTIVES = [
 # CSV HELPERS
 # ============================================================
 
-CASE_FIELDS = [
-    "scenario",
+RAW_FIELDS = [
     "size",
+    "maze_type",
     "case",
     "seed",
-    "start",
-    "goal",
+    "start_x",
+    "start_y",
+    "goal_x",
+    "goal_y",
     "objective",
-
-    "dijkstra_cost",
-    "astar_cost",
-
-    "dijkstra_expanded",
-    "astar_expanded",
-
-    "dijkstra_avg_ms",
-    "dijkstra_min_ms",
-    "dijkstra_max_ms",
-
-    "astar_avg_ms",
-    "astar_min_ms",
-    "astar_max_ms",
-
-    "expansion_reduction_pct",
+    "d_cost",
+    "a_cost",
+    "d_exp",
+    "a_exp",
+    "expansion_reduction",
+    "d_avg_ms",
+    "d_min_ms",
+    "d_max_ms",
+    "a_avg_ms",
+    "a_min_ms",
+    "a_max_ms",
     "speedup",
+]
 
-    "astar_faster",
+
+CASE_FIELDS = [
+    "size",
+    "maze_type",
+    "case",
+    "seed",
+    "start_x",
+    "start_y",
+    "goal_x",
+    "goal_y",
+    "distance_d_speedup",
+    "time_d_speedup",
+    "energy_d_speedup",
+    "distance_reduction",
+    "time_reduction",
+    "energy_reduction",
 ]
 
 
 SUMMARY_FIELDS = [
-    "scenario",
+    "maze_type",
     "size",
     "objective",
     "cases",
-
-    "avg_dijkstra_expanded",
-    "avg_astar_expanded",
-    "avg_expansion_reduction_pct",
-
+    "avg_dijkstra_exp",
+    "avg_astar_exp",
+    "avg_reduction",
     "avg_dijkstra_ms",
     "avg_astar_ms",
     "avg_speedup",
-
-    "astar_faster_cases",
-    "astar_same_cases",
-    "astar_slower_cases",
-
-    "best_speedup",
     "median_speedup",
+    "best_speedup",
     "worst_speedup",
+    "astar_faster",
+    "astar_same",
+    "astar_slower",
 ]
 
 
-def save_case_results(rows):
-    """Save every benchmark case to CSV."""
-
+def write_csv_header(path, fields):
     with open(
-        CASE_CSV,
+        path,
         "w",
         newline="",
         encoding="utf-8",
     ) as f:
-
         writer = csv.DictWriter(
             f,
-            fieldnames=CASE_FIELDS,
+            fieldnames=fields,
         )
-
         writer.writeheader()
-        writer.writerows(rows)
 
 
-def save_summary(rows):
-    """Save aggregated benchmark results to CSV."""
+write_csv_header(RAW_CSV, RAW_FIELDS)
+write_csv_header(CASE_SUMMARY_CSV, CASE_FIELDS)
+write_csv_header(SUMMARY_CSV, SUMMARY_FIELDS)
 
+
+def append_csv(path, fields, row):
     with open(
-        SUMMARY_CSV,
-        "w",
+        path,
+        "a",
         newline="",
         encoding="utf-8",
     ) as f:
-
         writer = csv.DictWriter(
             f,
-            fieldnames=SUMMARY_FIELDS,
+            fieldnames=fields,
         )
+        writer.writerow(row)
 
-        writer.writeheader()
-        writer.writerows(rows)
+
+# ============================================================
+# CONFIG FILE
+# ============================================================
+
+with open(
+    CONFIG_FILE,
+    "w",
+    encoding="utf-8",
+) as f:
+
+    f.write("A* vs DIJKSTRA LARGE RUNTIME EXPERIMENT\n")
+    f.write("=" * 60 + "\n\n")
+
+    f.write(f"Run ID: {RUN_ID}\n")
+    f.write(f"Base seed: {BASE_SEED}\n")
+    f.write(f"Sizes: {SIZES}\n")
+    f.write(f"Cases per size: {CASES_PER_SIZE}\n")
+    f.write(f"Benchmark runs: {BENCH_RUNS}\n")
+    f.write(
+        f"Wall probability: "
+        f"{WALL_PROBABILITY}\n"
+    )
+    f.write(
+        f"Min Manhattan ratio: "
+        f"{MIN_MANHATTAN_RATIO}\n"
+    )
+
+    f.write("\nMaze types:\n")
+    f.write("- random\n")
+    f.write("- open\n")
+    f.write("- dense\n")
+    f.write("- weighted\n")
 
 
 # ============================================================
@@ -186,21 +275,13 @@ def build_random_maze(
     seed: int,
     wall_probability: float = WALL_PROBABILITY,
 ):
-    """
-    Random maze.
-
-    Border = wall
-    Interior = random walkable / wall
-
-    Start / goal are selected from walkable cells
-    and must be sufficiently far apart.
-    """
 
     rng = random.Random(seed)
 
     maze = Maze(size, size)
 
     for y in range(1, size - 1):
+
         for x in range(1, size - 1):
 
             if rng.random() > wall_probability:
@@ -209,6 +290,7 @@ def build_random_maze(
     walkable = []
 
     for y in range(1, size - 1):
+
         for x in range(1, size - 1):
 
             cell = maze.get_cell(x, y)
@@ -234,7 +316,10 @@ def build_random_maze(
 
         max_distance = 2 * (size - 1)
 
-        if distance >= max_distance * MIN_MANHATTAN_RATIO:
+        if (
+            distance
+            >= max_distance * MIN_MANHATTAN_RATIO
+        ):
 
             maze.set_start(*start)
             maze.set_goal(*goal)
@@ -249,24 +334,20 @@ def build_random_maze(
 # ============================================================
 
 def build_open_maze(size: int):
-    """
-    Almost completely open maze.
-
-    Useful for testing how strongly the heuristic
-    guides A* compared with Dijkstra.
-    """
 
     maze = Maze(size, size)
 
     for y in range(1, size - 1):
+
         for x in range(1, size - 1):
+
             maze.set_walkable(x, y)
 
-    start = (1, 1)
-    goal = (size - 2, size - 2)
-
-    maze.set_start(*start)
-    maze.set_goal(*goal)
+    maze.set_start(1, 1)
+    maze.set_goal(
+        size - 2,
+        size - 2,
+    )
 
     return maze
 
@@ -279,11 +360,6 @@ def build_dense_maze(
     size: int,
     seed: int,
 ):
-    """
-    Dense / mostly open random maze.
-
-    Low wall probability means many alternative paths.
-    """
 
     return build_random_maze(
         size,
@@ -300,11 +376,6 @@ def build_weighted_maze(
     size: int,
     seed: int,
 ):
-    """
-    Random maze + terrain + elevation.
-
-    Designed to stress TIME / ENERGY objectives.
-    """
 
     maze = build_random_maze(
         size,
@@ -315,7 +386,9 @@ def build_weighted_maze(
     if maze is None:
         return None
 
-    rng = random.Random(seed + 999999)
+    rng = random.Random(
+        seed + 999999
+    )
 
     terrains = [
         Terrain.ROAD,
@@ -325,6 +398,7 @@ def build_weighted_maze(
     ]
 
     for y in range(1, size - 1):
+
         for x in range(1, size - 1):
 
             cell = maze.get_cell(x, y)
@@ -332,9 +406,14 @@ def build_weighted_maze(
             if not cell.walkable:
                 continue
 
-            cell.terrain = rng.choice(terrains)
+            cell.terrain = rng.choice(
+                terrains
+            )
 
-            cell.elevation = rng.randint(0, 10)
+            cell.elevation = rng.randint(
+                0,
+                10,
+            )
 
     return maze
 
@@ -350,19 +429,19 @@ def validate_result(
     goal,
     cost_fn,
 ):
-    """
-    Verify that the returned path is valid and that
-    path_cost matches the actual path cost.
-    """
 
-    assert result.found, "Path not found"
+    assert result.found, (
+        "Path not found"
+    )
 
     assert result.path[0] == start
     assert result.path[-1] == goal
 
     calculated = 0.0
 
-    for i in range(len(result.path) - 1):
+    for i in range(
+        len(result.path) - 1
+    ):
 
         x, y = result.path[i]
         nx, ny = result.path[i + 1]
@@ -401,15 +480,6 @@ def benchmark_algorithm(
     cost_fn,
     heuristic_fn=None,
 ):
-    """
-    Benchmark one algorithm.
-
-    Returns:
-        avg
-        min
-        max
-        result
-    """
 
     times = []
     last_result = None
@@ -492,16 +562,9 @@ def compare(
     cost_fn,
     heuristic_fn,
 ):
-    """
-    Compare Dijkstra vs A* for one objective.
-    """
 
     dijkstra = Dijkstra()
     astar = Astar()
-
-    # --------------------------------------------------------
-    # Dijkstra
-    # --------------------------------------------------------
 
     d = benchmark_algorithm(
         dijkstra,
@@ -510,10 +573,6 @@ def compare(
         goal,
         cost_fn,
     )
-
-    # --------------------------------------------------------
-    # A*
-    # --------------------------------------------------------
 
     a = benchmark_algorithm(
         astar,
@@ -547,7 +606,6 @@ def compare(
         cost_fn,
     )
 
-    # Dijkstra and A* must return the same optimal cost
     assert math.isclose(
         d_result.path_cost,
         a_result.path_cost,
@@ -562,22 +620,20 @@ def compare(
     d_exp = d_result.expanded_nodes
     a_exp = a_result.expanded_nodes
 
+    reduction = 0.0
+
     if d_exp > 0:
 
-        expansion_reduction = (
+        reduction = (
             (d_exp - a_exp)
             / d_exp
             * 100
         )
 
-    else:
-
-        expansion_reduction = 0.0
-
     speedup = (
         d["avg"] / a["avg"]
         if a["avg"] > 0
-        else 0.0
+        else 0
     )
 
     return {
@@ -597,7 +653,7 @@ def compare(
         "a_min": a["min"],
         "a_max": a["max"],
 
-        "reduction": expansion_reduction,
+        "reduction": reduction,
         "speedup": speedup,
     }
 
@@ -614,266 +670,108 @@ def print_result(result):
         f"A*={result['a_cost']:10.3f} "
         f"D_exp={result['d_exp']:6d} "
         f"A*_exp={result['a_exp']:6d} "
-        f"reduction={result['reduction']:6.2f}% "
-        f"D_time={result['d_avg']:8.3f} ms "
-        f"A*_time={result['a_avg']:8.3f} ms "
-        f"speedup={result['speedup']:5.2f}x"
+        f"reduction="
+        f"{result['reduction']:6.2f}% "
+        f"D_time="
+        f"{result['d_avg']:8.3f} ms "
+        f"A*_time="
+        f"{result['a_avg']:8.3f} ms "
+        f"speedup="
+        f"{result['speedup']:5.2f}x"
     )
 
 
 # ============================================================
-# AGGREGATE
+# SAVE RAW RESULT
 # ============================================================
 
-def summarize(
-    results,
-    title,
-    scenario,
+def save_raw(
+    result,
     size,
-    summary_rows,
-):
-    """
-    Print and store summary statistics.
-    """
-
-    print()
-    print("#" * 70)
-    print(title)
-    print("#" * 70)
-
-    for objective_name, _, _ in OBJECTIVES:
-
-        rows = [
-            r
-            for r in results
-            if r["objective"] == objective_name
-        ]
-
-        if not rows:
-            continue
-
-        d_exp = statistics.mean(
-            r["d_exp"]
-            for r in rows
-        )
-
-        a_exp = statistics.mean(
-            r["a_exp"]
-            for r in rows
-        )
-
-        reduction = statistics.mean(
-            r["reduction"]
-            for r in rows
-        )
-
-        d_time = statistics.mean(
-            r["d_avg"]
-            for r in rows
-        )
-
-        a_time = statistics.mean(
-            r["a_avg"]
-            for r in rows
-        )
-
-        speedup = d_time / a_time
-
-        faster = sum(
-            r["speedup"] > 1.0
-            for r in rows
-        )
-
-        slower = sum(
-            r["speedup"] < 1.0
-            for r in rows
-        )
-
-        same = (
-            len(rows)
-            - faster
-            - slower
-        )
-
-        best = max(
-            r["speedup"]
-            for r in rows
-        )
-
-        worst = min(
-            r["speedup"]
-            for r in rows
-        )
-
-        median = statistics.median(
-            r["speedup"]
-            for r in rows
-        )
-
-        print()
-        print(objective_name)
-        print("-" * 70)
-
-        print(
-            f"Cases:                 {len(rows)}"
-        )
-
-        print(
-            f"Average Dijkstra exp:  {d_exp:.2f}"
-        )
-
-        print(
-            f"Average A* exp:        {a_exp:.2f}"
-        )
-
-        print(
-            f"Average reduction:     {reduction:.2f}%"
-        )
-
-        print(
-            f"Average Dijkstra time: {d_time:.4f} ms"
-        )
-
-        print(
-            f"Average A* time:       {a_time:.4f} ms"
-        )
-
-        print(
-            f"Average speedup:       {speedup:.2f}x"
-        )
-
-        print(
-            f"A* faster:             {faster}"
-        )
-
-        print(
-            f"A* same:               {same}"
-        )
-
-        print(
-            f"A* slower:             {slower}"
-        )
-
-        print(
-            f"Best speedup:          {best:.2f}x"
-        )
-
-        print(
-            f"Median speedup:        {median:.2f}x"
-        )
-
-        print(
-            f"Worst speedup:         {worst:.2f}x"
-        )
-
-        summary_rows.append({
-            "scenario": scenario,
-            "size": size,
-            "objective": objective_name,
-            "cases": len(rows),
-
-            "avg_dijkstra_expanded": d_exp,
-            "avg_astar_expanded": a_exp,
-            "avg_expansion_reduction_pct": reduction,
-
-            "avg_dijkstra_ms": d_time,
-            "avg_astar_ms": a_time,
-            "avg_speedup": speedup,
-
-            "astar_faster_cases": faster,
-            "astar_same_cases": same,
-            "astar_slower_cases": slower,
-
-            "best_speedup": best,
-            "median_speedup": median,
-            "worst_speedup": worst,
-        })
-
-
-# ============================================================
-# SAVE CASE
-# ============================================================
-
-def append_case_rows(
-    case_rows,
-    scenario,
-    size,
-    case_id,
+    maze_type,
+    case,
     seed,
     start,
     goal,
-    results,
 ):
-    """
-    Convert benchmark results into CSV rows.
-    """
 
-    for result in results:
+    row = {
+        "size": size,
+        "maze_type": maze_type,
+        "case": case,
+        "seed": seed,
 
-        case_rows.append({
-            "scenario": scenario,
-            "size": size,
-            "case": case_id,
-            "seed": seed,
-            "start": start,
-            "goal": goal,
-            "objective": result["objective"],
+        "start_x": start[0],
+        "start_y": start[1],
 
-            "dijkstra_cost": result["d_cost"],
-            "astar_cost": result["a_cost"],
+        "goal_x": goal[0],
+        "goal_y": goal[1],
 
-            "dijkstra_expanded": result["d_exp"],
-            "astar_expanded": result["a_exp"],
+        "objective": result["objective"],
 
-            "dijkstra_avg_ms": result["d_avg"],
-            "dijkstra_min_ms": result["d_min"],
-            "dijkstra_max_ms": result["d_max"],
+        "d_cost": result["d_cost"],
+        "a_cost": result["a_cost"],
 
-            "astar_avg_ms": result["a_avg"],
-            "astar_min_ms": result["a_min"],
-            "astar_max_ms": result["a_max"],
+        "d_exp": result["d_exp"],
+        "a_exp": result["a_exp"],
 
-            "expansion_reduction_pct": result["reduction"],
-            "speedup": result["speedup"],
+        "expansion_reduction":
+            result["reduction"],
 
-            "astar_faster": (
-                result["speedup"] > 1.0
-            ),
-        })
+        "d_avg_ms": result["d_avg"],
+        "d_min_ms": result["d_min"],
+        "d_max_ms": result["d_max"],
+
+        "a_avg_ms": result["a_avg"],
+        "a_min_ms": result["a_min"],
+        "a_max_ms": result["a_max"],
+
+        "speedup": result["speedup"],
+    }
+
+    append_csv(
+        RAW_CSV,
+        RAW_FIELDS,
+        row,
+    )
 
 
 # ============================================================
-# RANDOM LARGE MAZES
+# RUN RANDOM / DENSE / WEIGHTED
 # ============================================================
 
-def run_random_benchmark(
+def run_random_like(
     size,
-    case_rows,
-    summary_rows,
+    maze_type,
+    builder,
+    seed_offset,
 ):
 
     print()
     print("=" * 70)
     print(
-        f"RANDOM MAZE: {size} x {size}"
+        f"{maze_type.upper()} MAZE: "
+        f"{size} x {size}"
     )
     print("=" * 70)
 
     results = []
 
     generated = 0
-    seed = BASE_SEED
+    seed = (
+        BASE_SEED
+        + seed_offset
+    )
 
     while generated < CASES_PER_SIZE:
 
         current_seed = seed
+        seed += 1
 
-        maze = build_random_maze(
+        maze = builder(
             size,
             current_seed,
         )
-
-        seed += 1
 
         if maze is None:
             continue
@@ -900,16 +798,24 @@ def run_random_benchmark(
                     heuristic_fn,
                 )
 
-                case_results.append(result)
+                case_results.append(
+                    result
+                )
 
         except AssertionError:
+
+            print(
+                f"SKIP seed={current_seed}"
+                " - invalid/no path"
+            )
 
             continue
 
         generated += 1
 
+        print()
         print(
-            f"\nCASE {generated:02d} "
+            f"CASE {generated:02d} "
             f"| seed={current_seed} "
             f"| start={start} "
             f"| goal={goal}"
@@ -919,26 +825,17 @@ def run_random_benchmark(
 
             print_result(result)
 
+            save_raw(
+                result,
+                size,
+                maze_type,
+                generated,
+                current_seed,
+                start,
+                goal,
+            )
+
             results.append(result)
-
-        append_case_rows(
-            case_rows,
-            "RANDOM",
-            size,
-            generated,
-            current_seed,
-            start,
-            goal,
-            case_results,
-        )
-
-    summarize(
-        results,
-        f"RANDOM MAZE SUMMARY - {size} x {size}",
-        "RANDOM",
-        size,
-        summary_rows,
-    )
 
     return results
 
@@ -947,16 +844,13 @@ def run_random_benchmark(
 # OPEN MAZE
 # ============================================================
 
-def run_open_benchmark(
-    size,
-    case_rows,
-    summary_rows,
-):
+def run_open(size):
 
     print()
     print("=" * 70)
     print(
-        f"OPEN MAZE: {size} x {size}"
+        f"OPEN MAZE: "
+        f"{size} x {size}"
     )
     print("=" * 70)
 
@@ -966,6 +860,9 @@ def run_open_benchmark(
     goal = maze.goal
 
     results = []
+
+    case = 1
+    seed = 0
 
     for (
         objective_name,
@@ -984,239 +881,425 @@ def run_open_benchmark(
 
         print_result(result)
 
+        save_raw(
+            result,
+            size,
+            "open",
+            case,
+            seed,
+            start,
+            goal,
+        )
+
         results.append(result)
 
-    append_case_rows(
-        case_rows,
-        "OPEN",
+    return results
+
+
+# ============================================================
+# SUMMARY
+# ============================================================
+
+def make_summary_rows(
+    all_results,
+):
+
+    rows = []
+
+    groups = {}
+
+    for item in all_results:
+
+        key = (
+            item["maze_type"],
+            item["size"],
+            item["objective"],
+        )
+
+        groups.setdefault(
+            key,
+            [],
+        ).append(item)
+
+    for (
+        maze_type,
         size,
-        1,
-        "OPEN",
+        objective,
+    ), items in groups.items():
+
+        d_exp = statistics.mean(
+            x["d_exp"]
+            for x in items
+        )
+
+        a_exp = statistics.mean(
+            x["a_exp"]
+            for x in items
+        )
+
+        reduction = statistics.mean(
+            x["reduction"]
+            for x in items
+        )
+
+        d_time = statistics.mean(
+            x["d_avg"]
+            for x in items
+        )
+
+        a_time = statistics.mean(
+            x["a_avg"]
+            for x in items
+        )
+
+        speedup = (
+            d_time / a_time
+            if a_time > 0
+            else 0
+        )
+
+        speedups = [
+            x["speedup"]
+            for x in items
+        ]
+
+        faster = sum(
+            x > 1
+            for x in speedups
+        )
+
+        slower = sum(
+            x < 1
+            for x in speedups
+        )
+
+        same = (
+            len(items)
+            - faster
+            - slower
+        )
+
+        row = {
+            "maze_type": maze_type,
+            "size": size,
+            "objective": objective,
+            "cases": len(items),
+
+            "avg_dijkstra_exp": d_exp,
+            "avg_astar_exp": a_exp,
+            "avg_reduction": reduction,
+
+            "avg_dijkstra_ms": d_time,
+            "avg_astar_ms": a_time,
+
+            "avg_speedup": speedup,
+
+            "median_speedup":
+                statistics.median(
+                    speedups
+                ),
+
+            "best_speedup":
+                max(speedups),
+
+            "worst_speedup":
+                min(speedups),
+
+            "astar_faster": faster,
+            "astar_same": same,
+            "astar_slower": slower,
+        }
+
+        rows.append(row)
+
+    return rows
+
+
+def save_summary(rows):
+
+    for row in rows:
+
+        append_csv(
+            SUMMARY_CSV,
+            SUMMARY_FIELDS,
+            row,
+        )
+
+
+def print_summary(
+    rows,
+    title,
+):
+
+    print()
+    print("#" * 70)
+    print(title)
+    print("#" * 70)
+
+    for row in rows:
+
+        print()
+        print(
+            f"{row['maze_type'].upper()} "
+            f"{row['size']}x{row['size']} "
+            f"- {row['objective']}"
+        )
+
+        print(
+            f"Cases:                 "
+            f"{row['cases']}"
+        )
+
+        print(
+            f"Average Dijkstra exp:  "
+            f"{row['avg_dijkstra_exp']:.2f}"
+        )
+
+        print(
+            f"Average A* exp:        "
+            f"{row['avg_astar_exp']:.2f}"
+        )
+
+        print(
+            f"Average reduction:     "
+            f"{row['avg_reduction']:.2f}%"
+        )
+
+        print(
+            f"Average Dijkstra time: "
+            f"{row['avg_dijkstra_ms']:.4f} ms"
+        )
+
+        print(
+            f"Average A* time:       "
+            f"{row['avg_astar_ms']:.4f} ms"
+        )
+
+        print(
+            f"Average speedup:       "
+            f"{row['avg_speedup']:.2f}x"
+        )
+
+        print(
+            f"A* faster:             "
+            f"{row['astar_faster']}"
+        )
+
+        print(
+            f"A* same:               "
+            f"{row['astar_same']}"
+        )
+
+        print(
+            f"A* slower:             "
+            f"{row['astar_slower']}"
+        )
+
+        print(
+            f"Best speedup:          "
+            f"{row['best_speedup']:.2f}x"
+        )
+
+        print(
+            f"Median speedup:        "
+            f"{row['median_speedup']:.2f}x"
+        )
+
+        print(
+            f"Worst speedup:         "
+            f"{row['worst_speedup']:.2f}x"
+        )
+
+
+# ============================================================
+# CASE SUMMARY
+# ============================================================
+
+def save_case_summaries(
+    all_results,
+):
+
+    groups = {}
+
+    for result in all_results:
+
+        key = (
+            result["maze_type"],
+            result["size"],
+            result["case"],
+            result["seed"],
+            result["start"],
+            result["goal"],
+        )
+
+        groups.setdefault(
+            key,
+            [],
+        ).append(result)
+
+    for (
+        maze_type,
+        size,
+        case,
+        seed,
         start,
         goal,
-        results,
-    )
+    ), items in groups.items():
 
-    summarize(
-        results,
-        f"OPEN MAZE SUMMARY - {size} x {size}",
-        "OPEN",
-        size,
-        summary_rows,
-    )
+        values = {
+            x["objective"]: x
+            for x in items
+        }
 
-    return results
+        row = {
+            "size": size,
+            "maze_type": maze_type,
+            "case": case,
+            "seed": seed,
+
+            "start_x": start[0],
+            "start_y": start[1],
+
+            "goal_x": goal[0],
+            "goal_y": goal[1],
+
+            "distance_d_speedup":
+                values.get(
+                    "DISTANCE",
+                    {},
+                ).get(
+                    "speedup",
+                    "",
+                ),
+
+            "time_d_speedup":
+                values.get(
+                    "TIME",
+                    {},
+                ).get(
+                    "speedup",
+                    "",
+                ),
+
+            "energy_d_speedup":
+                values.get(
+                    "ENERGY",
+                    {},
+                ).get(
+                    "speedup",
+                    "",
+                ),
+
+            "distance_reduction":
+                values.get(
+                    "DISTANCE",
+                    {},
+                ).get(
+                    "reduction",
+                    "",
+                ),
+
+            "time_reduction":
+                values.get(
+                    "TIME",
+                    {},
+                ).get(
+                    "reduction",
+                    "",
+                ),
+
+            "energy_reduction":
+                values.get(
+                    "ENERGY",
+                    {},
+                ).get(
+                    "reduction",
+                    "",
+                ),
+        }
+
+        append_csv(
+            CASE_SUMMARY_CSV,
+            CASE_FIELDS,
+            row,
+        )
 
 
 # ============================================================
-# DENSE MAZE
+# BEST / WORST CASES
 # ============================================================
 
-def run_dense_benchmark(
-    size,
-    case_rows,
-    summary_rows,
+def save_extreme_cases(
+    all_results,
 ):
 
-    print()
-    print("=" * 70)
-    print(
-        f"DENSE RANDOM MAZE: {size} x {size}"
-    )
-    print("=" * 70)
-
-    results = []
-
-    generated = 0
-    seed = BASE_SEED + 50000
-
-    while generated < CASES_PER_SIZE:
-
-        current_seed = seed
-
-        maze = build_dense_maze(
-            size,
-            current_seed,
-        )
-
-        seed += 1
-
-        if maze is None:
-            continue
-
-        start = maze.start
-        goal = maze.goal
-
-        case_results = []
-
-        try:
-
-            for (
-                objective_name,
-                cost_fn,
-                heuristic_fn,
-            ) in OBJECTIVES:
-
-                result = compare(
-                    maze,
-                    start,
-                    goal,
-                    objective_name,
-                    cost_fn,
-                    heuristic_fn,
-                )
-
-                case_results.append(result)
-
-        except AssertionError:
-
-            continue
-
-        generated += 1
-
-        print(
-            f"\nCASE {generated:02d} "
-            f"| seed={current_seed} "
-            f"| start={start} "
-            f"| goal={goal}"
-        )
-
-        for result in case_results:
-
-            print_result(result)
-
-            results.append(result)
-
-        append_case_rows(
-            case_rows,
-            "DENSE",
-            size,
-            generated,
-            current_seed,
-            start,
-            goal,
-            case_results,
-        )
-
-    summarize(
-        results,
-        f"DENSE MAZE SUMMARY - {size} x {size}",
-        "DENSE",
-        size,
-        summary_rows,
+    sorted_results = sorted(
+        all_results,
+        key=lambda x: x["speedup"],
+        reverse=True,
     )
 
-    return results
+    best = sorted_results[:20]
+    worst = sorted_results[-20:]
 
+    fields = [
+        "size",
+        "maze_type",
+        "case",
+        "seed",
+        "objective",
+        "speedup",
+        "reduction",
+        "d_avg_ms",
+        "a_avg_ms",
+        "d_exp",
+        "a_exp",
+    ]
 
-# ============================================================
-# WEIGHTED MAZE
-# ============================================================
-
-def run_weighted_benchmark(
-    size,
-    case_rows,
-    summary_rows,
-):
-
-    print()
-    print("=" * 70)
-    print(
-        f"WEIGHTED MAZE: {size} x {size}"
-    )
-    print("=" * 70)
-
-    results = []
-
-    generated = 0
-    seed = BASE_SEED + 100000
-
-    while generated < CASES_PER_SIZE:
-
-        current_seed = seed
-
-        maze = build_weighted_maze(
-            size,
-            current_seed,
-        )
-
-        seed += 1
-
-        if maze is None:
-            continue
-
-        start = maze.start
-        goal = maze.goal
-
-        case_results = []
-
-        try:
-
-            for (
-                objective_name,
-                cost_fn,
-                heuristic_fn,
-            ) in OBJECTIVES:
-
-                result = compare(
-                    maze,
-                    start,
-                    goal,
-                    objective_name,
-                    cost_fn,
-                    heuristic_fn,
-                )
-
-                case_results.append(result)
-
-        except AssertionError:
-
-            continue
-
-        generated += 1
-
-        print(
-            f"\nCASE {generated:02d} "
-            f"| seed={current_seed} "
-            f"| start={start} "
-            f"| goal={goal}"
-        )
-
-        for result in case_results:
-
-            print_result(result)
-
-            results.append(result)
-
-        append_case_rows(
-            case_rows,
-            "WEIGHTED",
-            size,
-            generated,
-            current_seed,
-            start,
-            goal,
-            case_results,
-        )
-
-    summarize(
-        results,
-        f"WEIGHTED MAZE SUMMARY - {size} x {size}",
-        "WEIGHTED",
-        size,
-        summary_rows,
+    write_csv_header(
+        BEST_CSV,
+        fields,
     )
 
-    return results
+    write_csv_header(
+        WORST_CSV,
+        fields,
+    )
+
+    for path, items in [
+        (BEST_CSV, best),
+        (WORST_CSV, worst),
+    ]:
+
+        for x in items:
+
+            row = {
+                "size": x["size"],
+                "maze_type": x["maze_type"],
+                "case": x["case"],
+                "seed": x["seed"],
+                "objective": x["objective"],
+                "speedup": x["speedup"],
+                "reduction": x["reduction"],
+                "d_avg_ms": x["d_avg"],
+                "a_avg_ms": x["a_avg"],
+                "d_exp": x["d_exp"],
+                "a_exp": x["a_exp"],
+            }
+
+            append_csv(
+                path,
+                fields,
+                row,
+            )
 
 
 # ============================================================
 # FINAL SUMMARY
 # ============================================================
 
-def final_summary(
+def print_final_summary(
     all_results,
-    summary_rows,
 ):
 
     print()
@@ -1227,35 +1310,38 @@ def final_summary(
     for objective_name, _, _ in OBJECTIVES:
 
         rows = [
-            r
-            for r in all_results
-            if r["objective"] == objective_name
+            x
+            for x in all_results
+            if x["objective"]
+            == objective_name
         ]
 
         if not rows:
             continue
 
         d_time = statistics.mean(
-            r["d_avg"]
-            for r in rows
+            x["d_avg"]
+            for x in rows
         )
 
         a_time = statistics.mean(
-            r["a_avg"]
-            for r in rows
+            x["a_avg"]
+            for x in rows
         )
 
         d_exp = statistics.mean(
-            r["d_exp"]
-            for r in rows
+            x["d_exp"]
+            for x in rows
         )
 
         a_exp = statistics.mean(
-            r["a_exp"]
-            for r in rows
+            x["a_exp"]
+            for x in rows
         )
 
-        speedup = d_time / a_time
+        speedup = (
+            d_time / a_time
+        )
 
         reduction = (
             (d_exp - a_exp)
@@ -1264,34 +1350,19 @@ def final_summary(
         )
 
         faster = sum(
-            r["speedup"] > 1
-            for r in rows
+            x["speedup"] > 1
+            for x in rows
         )
 
         slower = sum(
-            r["speedup"] < 1
-            for r in rows
+            x["speedup"] < 1
+            for x in rows
         )
 
         same = (
             len(rows)
             - faster
             - slower
-        )
-
-        best = max(
-            r["speedup"]
-            for r in rows
-        )
-
-        median = statistics.median(
-            r["speedup"]
-            for r in rows
-        )
-
-        worst = min(
-            r["speedup"]
-            for r in rows
         )
 
         print()
@@ -1342,57 +1413,46 @@ def final_summary(
             f"{slower}/{len(rows)}"
         )
 
-        print(
-            f"  Best speedup      : "
-            f"{best:.2f}x"
-        )
-
-        print(
-            f"  Median speedup    : "
-            f"{median:.2f}x"
-        )
-
-        print(
-            f"  Worst speedup     : "
-            f"{worst:.2f}x"
-        )
-
-    print()
-    print("#" * 70)
-    print("CSV RESULTS")
-    print("#" * 70)
-
-    print(
-        f"Case results : {CASE_CSV}"
-    )
-
-    print(
-        f"Summary      : {SUMMARY_CSV}"
-    )
-
 
 # ============================================================
 # MAIN
 # ============================================================
 
-if __name__ == "__main__":
+def main():
 
     print()
     print("#" * 70)
-    print("A* vs DIJKSTRA - LARGE RUNTIME STRESS TEST")
+    print(
+        "A* vs DIJKSTRA "
+        "LARGE RUNTIME STRESS TEST"
+    )
     print("#" * 70)
 
     print()
     print("Configuration")
     print("-" * 70)
     print("Sizes:", SIZES)
-    print("Cases / size:", CASES_PER_SIZE)
-    print("Benchmark runs:", BENCH_RUNS)
-    print("Wall probability:", WALL_PROBABILITY)
-    print("Base seed:", BASE_SEED)
+    print(
+        "Cases / size:",
+        CASES_PER_SIZE,
+    )
+    print(
+        "Benchmark runs:",
+        BENCH_RUNS,
+    )
+    print(
+        "Wall probability:",
+        WALL_PROBABILITY,
+    )
+    print(
+        "Base seed:",
+        BASE_SEED,
+    )
 
-    case_rows = []
-    summary_rows = []
+    print()
+    print("Results directory:")
+    print(RESULT_DIR)
+
     all_results = []
 
     # ========================================================
@@ -1401,17 +1461,21 @@ if __name__ == "__main__":
 
     for size in SIZES:
 
-        results = run_random_benchmark(
+        results = run_random_like(
             size,
-            case_rows,
-            summary_rows,
+            "random",
+            build_random_maze,
+            0,
         )
 
-        all_results.extend(results)
+        for result in results:
+            result["maze_type"] = "random"
+            result["size"] = size
 
-        # Save progressively
-        save_case_results(case_rows)
-        save_summary(summary_rows)
+            # Metadata được thêm ở đây
+            # để summary xử lý.
+
+        all_results.extend(results)
 
     # ========================================================
     # OPEN
@@ -1419,16 +1483,21 @@ if __name__ == "__main__":
 
     for size in SIZES:
 
-        results = run_open_benchmark(
-            size,
-            case_rows,
-            summary_rows,
-        )
+        results = run_open(size)
+
+        for result in results:
+
+            result["maze_type"] = "open"
+            result["size"] = size
+            result["case"] = 1
+            result["seed"] = 0
+            result["start"] = (1, 1)
+            result["goal"] = (
+                size - 2,
+                size - 2,
+            )
 
         all_results.extend(results)
-
-        save_case_results(case_rows)
-        save_summary(summary_rows)
 
     # ========================================================
     # DENSE
@@ -1436,16 +1505,18 @@ if __name__ == "__main__":
 
     for size in SIZES:
 
-        results = run_dense_benchmark(
+        results = run_random_like(
             size,
-            case_rows,
-            summary_rows,
+            "dense",
+            build_dense_maze,
+            50000,
         )
 
-        all_results.extend(results)
+        for result in results:
+            result["maze_type"] = "dense"
+            result["size"] = size
 
-        save_case_results(case_rows)
-        save_summary(summary_rows)
+        all_results.extend(results)
 
     # ========================================================
     # WEIGHTED
@@ -1453,31 +1524,104 @@ if __name__ == "__main__":
 
     for size in SIZES:
 
-        results = run_weighted_benchmark(
+        results = run_random_like(
             size,
-            case_rows,
-            summary_rows,
+            "weighted",
+            build_weighted_maze,
+            100000,
         )
+
+        for result in results:
+            result["maze_type"] = "weighted"
+            result["size"] = size
 
         all_results.extend(results)
 
-        save_case_results(case_rows)
-        save_summary(summary_rows)
+    # ========================================================
+    # SUMMARIES
+    # ========================================================
+
+    summary_rows = make_summary_rows(
+        all_results
+    )
+
+    save_summary(summary_rows)
+
+    print_summary(
+        summary_rows,
+        "GROUPED SUMMARY",
+    )
+
+    save_case_summaries(
+        all_results
+    )
+
+    save_extreme_cases(
+        all_results
+    )
+
+    print_final_summary(
+        all_results
+    )
 
     # ========================================================
     # FINAL
     # ========================================================
 
-    final_summary(
-        all_results,
-        summary_rows,
-    )
-
-    # Final save
-    save_case_results(case_rows)
-    save_summary(summary_rows)
-
     print()
     print("#" * 70)
     print("LARGE RUNTIME BENCHMARK FINISHED")
     print("#" * 70)
+
+    print()
+    print(
+        f"Total result rows: "
+        f"{len(all_results)}"
+    )
+
+    print()
+    print("Files saved:")
+    print(
+        f"  raw_results.csv     -> "
+        f"{RAW_CSV}"
+    )
+    print(
+        f"  summary.csv         -> "
+        f"{SUMMARY_CSV}"
+    )
+    print(
+        f"  case_summary.csv    -> "
+        f"{CASE_SUMMARY_CSV}"
+    )
+    print(
+        f"  best_cases.csv      -> "
+        f"{BEST_CSV}"
+    )
+    print(
+        f"  worst_cases.csv     -> "
+        f"{WORST_CSV}"
+    )
+    print(
+        f"  config.txt          -> "
+        f"{CONFIG_FILE}"
+    )
+    print(
+        f"  terminal_output.txt -> "
+        f"{TERMINAL_FILE}"
+    )
+
+
+# ============================================================
+# RUN
+# ============================================================
+
+try:
+
+    if __name__ == "__main__":
+        main()
+
+finally:
+
+    sys.stdout = original_stdout
+
+    terminal_file.close()
